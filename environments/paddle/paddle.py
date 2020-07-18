@@ -63,17 +63,55 @@ class Paddle():
             self.paddle.setx(x-20)
 
 
-    def run_frame(self):
+    # ------------------------ AI control ------------------------
 
+    # 0 do nothing
+    # 1 move left
+    # 2 move right
+
+    def reset(self):
+        self.paddle.goto(0, -275)
+        self.ball.goto(0, 100)
+        state =  self.get_state()
+        return state
+
+    def step(self, action):
+        self.reward = 0
+        self.done = 0
+
+        if action == 0:
+            pass # do nothing
+
+        if action == 1:
+            self.paddle_left()
+            self.reward -= .1
+
+        if action == 2:
+            self.paddle_right()
+            self.reward -= .1
+
+        self.run_frame()
+
+        state = get_state()
+        return self.reward, state, self.done
+
+    def get_state(self):
+        """
+        state: paddle x position
+               ball x , y position,
+               ball velocity dx and dy
+        """       
+        return [self.paddle.xcor()*0.01, self.ball.xcor()*0.01, self.ball.ycor()*0.01, self.ball.dx, self.ball.dy]
+
+
+    def run_frame(self):
         self.win.update()
 
         # Ball moving
-
         self.ball.setx(self.ball.xcor() + self.ball.dx)
         self.ball.sety(self.ball.ycor() + self.ball.dy)
 
         # Ball and Wall collision
-
         if self.ball.xcor() > 290:
             self.ball.setx(290)
             self.ball.dx *= -1
