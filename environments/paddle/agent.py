@@ -78,33 +78,33 @@ class Agent:
                     'done': done
                 })
 
-            # sample from D
-            batch_size = 32
-            replays = random.sample(self.D, k=min(batch_size, len(self.D)))
-            X = np.array([r['state'] for r in replays])
-            X = X.reshape(-1, len(state))
-
-            def set_y(replay):
-                if replay['done']:
-                    y = replay['reward']
-                else:
-                    next_reward = self.predict_rewards(replay['new_state'])
-                    max_next_reward = np.max(next_reward)
-                    y = replay['reward'] + self.delta * max_next_reward
-                return y
-
-            Y = list(map(set_y, replays))
-            Y = np.array(Y).reshape(-1)
-
-            # update weights SGD
-            self.update_weights(X, Y)
+            if steps_counter % 20 == 0:
+                self.update_weights(X, Y)
 
             steps_counter += 1
             if done:
                 games_counter += 1
 
+    def update_weights(self):
+        # sample from D
+        batch_size = 32
+        replays = random.sample(self.D, k=min(batch_size, len(self.D)))
+        X = np.array([r['state'] for r in replays])
+        X = X.reshape(-1, len(state))
 
-    def update_weights(self, X, Y):
+        def set_y(replay):
+            if replay['done']:
+                y = replay['reward']
+            else:
+                next_reward = self.predict_rewards(replay['new_state'])
+                max_next_reward = np.max(next_reward)
+                y = replay['reward'] + self.delta * max_next_reward
+            return y
+
+        Y = list(map(set_y, replays))
+        Y = np.array(Y).reshape(-1)
+
+        # update weights SGD
         self.model.fit(
             x=X,
             y=Y,
