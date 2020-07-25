@@ -92,7 +92,7 @@ class Paddle():
 
         self.run_frame()
 
-        state = get_state()
+        state = self.get_state()
         return self.reward, state, self.done
 
     def get_state(self):
