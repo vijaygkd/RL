@@ -129,16 +129,16 @@ class Paddle():
             self.ball.goto(0, 100)
             self.miss += 1
             self.score.clear()
-            self.score.write("Hit: {}   Missed: {}".format(self.hit, self.miss), align='center', font=('Courier', 24, 'normal'))
+            self.score.write(f"Hit: {self.hit}   Missed: {self.miss}", align='center', font=('Courier', 24, 'normal'))
             self.reward -= 3
-            self.done = True
+            self.done = 1
 
         # Ball Paddle collision
         if abs(self.ball.ycor() + 250) < 2 and abs(self.paddle.xcor() - self.ball.xcor()) < 55:
             self.ball.dy *= -1
             self.hit += 1
             self.score.clear()
-            self.score.write("Hit: {}   Missed: {}".format(self.hit, self.miss), align='center', font=('Courier', 24, 'normal'))
+            self.score.write(f"Hit: {self.hit}   Missed: {self.miss}", align='center', font=('Courier', 24, 'normal'))
             self.reward += 3
 
 
