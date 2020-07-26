@@ -130,7 +130,7 @@ class Agent:
             if done:
                 games_counter += 1
                 self.total_reward_per_epoch.append(total_game_reward)
-                self.val_score_per_epoch.append(np.avg(val_scores))
+                self.val_score_per_epoch.append(np.average(val_scores))
                 # reset for next epoch
                 total_game_reward = 0
                 val_scores = []
