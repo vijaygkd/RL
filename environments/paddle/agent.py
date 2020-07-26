@@ -14,6 +14,7 @@ class Agent:
 
     def __init__(self):
         self.epochs = 1000
+        self.batch_size = 64
         
         # hyper - params
         self.epsilon = 1
@@ -22,7 +23,7 @@ class Agent:
         self.gamma = 0.95   # discout rate
 
         self.model = self.get_init_model()
-        self.memory = []     # replay memory
+        self.memory = deque(maxlen=100000)     # replay memory
 
         self.env = Paddle()
 
@@ -102,9 +103,11 @@ class Agent:
                 games_counter += 1
 
     def update_weights(self):
+        if len(self.memory) < self.batch_size:
+            return
+
         # sample from D
-        batch_size = 32
-        replays = random.sample(self.memory, k=min(batch_size, len(self.memory)))
+        replays = random.sample(self.memory, k=self.batch_size)
         X = np.array([r['state'] for r in replays])
         X = X.reshape(-1, 5)
 
