@@ -79,7 +79,7 @@ class Agent:
                 })
 
             if steps_counter % 20 == 0:
-                self.update_weights(X, Y)
+                self.update_weights()
 
             steps_counter += 1
             if done:
@@ -90,19 +90,22 @@ class Agent:
         batch_size = 32
         replays = random.sample(self.D, k=min(batch_size, len(self.D)))
         X = np.array([r['state'] for r in replays])
-        X = X.reshape(-1, len(state))
+        X = X.reshape(-1, 5)
 
         def set_y(replay):
+            y = [0,0,0]
+            action = replay['action']
             if replay['done']:
-                y = replay['reward']
+                r = replay['reward']
             else:
                 next_reward = self.predict_rewards(replay['new_state'])
                 max_next_reward = np.max(next_reward)
-                y = replay['reward'] + self.delta * max_next_reward
+                r = replay['reward'] + self.delta * max_next_reward
+            y[action] = r
             return y
 
         Y = list(map(set_y, replays))
-        Y = np.array(Y).reshape(-1)
+        Y = np.array(Y).reshape(-1, 3)  # one-hot y value
 
         # update weights SGD
         self.model.fit(
