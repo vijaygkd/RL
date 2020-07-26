@@ -1,4 +1,5 @@
 import random
+from collections import deque
 
 import numpy as np
 from tensorflow.keras.models import Model
@@ -13,12 +14,16 @@ class Agent:
 
     def __init__(self):
         self.epochs = 1000
+        self.batch_size = 64
         
         # hyper - params
-        self.delta = 0.9   # discout rate
+        self.epsilon = 1
+        self.epsilon_decay = 0.995
+
+        self.gamma = 0.95   # discout rate
 
         self.model = self.get_init_model()
-        self.D = []     # replay memory
+        self.memory = deque(maxlen=100000)     # replay memory
 
         self.env = Paddle()
 
@@ -56,6 +61,14 @@ class Agent:
         return model
 
 
+    def is_random_action_policy(self):
+        dice = random.uniform(0, 1)
+        is_random = dice < self.epsilon
+        if self.epsilon > 0.1:
+            self.epsilon *= self.epsilon_decay
+        return is_random
+
+
     def train(self):
         games_counter = 0
         steps_counter = 0
@@ -63,14 +76,18 @@ class Agent:
         while games_counter < self.epochs:
             state = self.env.get_state()
 
-            # greedy or random policy
-            action = self.select_action(state)
+            # random action policy
+            if self.is_random_action_policy():
+                action = random.randint(0,2)
+            # greedy action policy
+            else:
+                action = self.select_action(state)
 
             # execute action in env
             reward, new_state, done = self.env.step(action)
 
             # replay memory
-            self.D.append({
+            self.memory.append({
                     'state': state,
                     'action': action,
                     'reward': reward,
@@ -79,35 +96,37 @@ class Agent:
                 })
 
             if steps_counter % 20 == 0:
-                self.update_weights(X, Y)
+                self.update_weights()
 
             steps_counter += 1
             if done:
                 games_counter += 1
 
     def update_weights(self):
+        if len(self.memory) < self.batch_size:
+            return
+
         # sample from D
-        batch_size = 32
-        replays = random.sample(self.D, k=min(batch_size, len(self.D)))
-        X = np.array([r['state'] for r in replays])
-        X = X.reshape(-1, len(state))
+        replays = random.sample(self.memory, k=self.batch_size)
+        X = np.array([r['state'] for r in replays]).reshape(-1, 5)
 
-        def set_y(replay):
-            if replay['done']:
-                y = replay['reward']
-            else:
-                next_reward = self.predict_rewards(replay['new_state'])
-                max_next_reward = np.max(next_reward)
-                y = replay['reward'] + self.delta * max_next_reward
-            return y
+        actions = np.array([r['action'] for r in replays])
+        rewards = np.array([r['reward'] for r in replays])
+        dones = np.array([r['done'] for r in replays])
 
-        Y = list(map(set_y, replays))
-        Y = np.array(Y).reshape(-1)
+        X_next = np.array([r['new_state'] for r in replays]).reshape(-1,5)
+        next_rewards = np.apply_along_axis(np.max, 1, self.model.predict_on_batch(X_next))
+        Y = rewards + self.gamma * next_rewards * (1-dones)
+
+        #### *** Setting target for training ***
+        Y_full = self.model.predict_on_batch(X)     # predicted rewards / action for current weights
+        ix = np.arange(self.batch_size)
+        Y_full[ix , actions] = Y            # replace target reward for the selected action from sample for training
 
         # update weights SGD
         self.model.fit(
             x=X,
-            y=Y,
+            y=Y_full,
             epochs=1
         )
 
