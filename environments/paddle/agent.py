@@ -25,17 +25,19 @@ class Agent:
         self.model = self.get_init_model()
         self.memory = deque(maxlen=100000)     # replay memory
 
+        # Eval
+        self.val_set = None
+        self.total_reward_per_epoch = []
+        self.val_score_per_epoch = []
+
+        # Environment
         self.env = Paddle()
 
 
     def get_init_model(self) -> Model:
         """Get model with initialized weights for the layers
-
-        Returns:
-            Model -- Keras model with initialized layer weights
         """
         # Feature inputs:
-        # state
         input_layer = Input(shape=(5,), name='input_features')
 
         # Hidden layers
@@ -50,7 +52,7 @@ class Agent:
                       outputs=output_layer)
 
         # Optimizer
-        optimizer = optimizers.Adam(learning_rate=0.001)
+        optimizer = optimizers.Adam(learning_rate=0.01)
 
         model.compile(
             loss=losses.MeanSquaredError(), 
@@ -69,11 +71,33 @@ class Agent:
         return is_random
 
 
+    def collect_validation_set(self):
+        # run random action policy before training and collect samples for validation set
+        print("Playing random policy game to collect validation set")
+        step_counter = 0
+        val_set = []
+
+        while step_counter < 1000:
+            state = self.env.get_state()
+            action = random.randint(0, 2)   # random action
+            reward, new_state, done = self.env.step(action)  # execute action
+            val_set.append({
+                'state': state,
+                'action': action,
+                'reward': reward,
+                'new_state': new_state,
+                'done': done
+            })
+            step_counter += 1
+
+        self.val_set = np.array(val_set)
+
+
     def train(self, epochs=1000):
         games_counter = 0
         steps_counter = 0
-        game_rewards = []
-        game_total_reward = 0
+        total_game_reward = 0
+        val_scores = []
 
         while games_counter < epochs:
             state = self.env.get_state()
@@ -87,6 +111,7 @@ class Agent:
 
             # execute action in env
             reward, new_state, done = self.env.step(action)
+            total_game_reward += reward
 
             # replay memory
             self.memory.append({
@@ -98,25 +123,23 @@ class Agent:
                 })
 
             if steps_counter % 20 == 0:
-                self.update_weights()
-
-            game_total_reward += reward
+                val_score = self.update_weights()
+                val_scores.append(val_score)
 
             steps_counter += 1
             if done:
                 games_counter += 1
-                game_rewards.append(game_total_reward)
-                game_total_reward = 0
+                self.total_reward_per_epoch.append(total_game_reward)
+                self.val_score_per_epoch.append(np.avg(val_scores))
+                # reset for next epoch
+                total_game_reward = 0
+                val_scores = []
 
-        return game_rewards
 
-
-    def update_weights(self):
-        if len(self.memory) < self.batch_size:
-            return
-
-        # sample from D
-        replays = random.sample(self.memory, k=self.batch_size)
+    def get_x_y_from_replays(self, replays):
+        """
+        Generate X, Y variables for model training from replays
+        """
         X = np.array([r['state'] for r in replays]).reshape(-1, 5)
 
         actions = np.array([r['action'] for r in replays])
@@ -132,6 +155,17 @@ class Agent:
         ix = np.arange(self.batch_size)
         Y_full[ix , actions] = Y            # replace target reward for the selected action from sample for training
 
+        return X, Y_full
+
+
+    def update_weights(self):
+        if len(self.memory) < self.batch_size:
+            return
+
+        # sample from memory
+        replays = random.sample(self.memory, k=self.batch_size)
+        X, Y_full = self.get_x_y_from_replays(replays)
+
         # update weights SGD
         self.model.fit(
             x=X,
@@ -139,6 +173,12 @@ class Agent:
             epochs=1,
             verbose=0
         )
+
+        # Evaluation val set
+        X_val = np.array([r['state'] for r in self.val_set]).reshape(-1, 5)
+        Y_val_pred = np.apply_along_axis(np.max, 1, self.model.predict_on_batch(X_val))
+        total_val_reward = np.sum(Y_val_pred)
+        return total_val_reward
 
 
     def predict_rewards(self, state):
@@ -152,16 +192,16 @@ class Agent:
         return action
 
 
-    def get_model():
-        pass
-
-
-    def save_model():
-        pass
-
-
-    def load_model():
-        pass
+    # def get_model():
+    #     pass
+    #
+    #
+    # def save_model():
+    #     pass
+    #
+    #
+    # def load_model():
+    #     pass
 
 
 
