@@ -13,12 +13,12 @@ from environments.paddle.paddle import Paddle
 class Agent:
 
     def __init__(self):
-        self.epochs = 1000
         self.batch_size = 64
         
         # hyper - params
         self.epsilon = 1
         self.epsilon_decay = 0.995
+        self.epsilon_min = 0.05
 
         self.gamma = 0.95   # discout rate
 
@@ -64,16 +64,18 @@ class Agent:
     def is_random_action_policy(self):
         dice = random.uniform(0, 1)
         is_random = dice < self.epsilon
-        if self.epsilon > 0.1:
+        if self.epsilon > self.epsilon_min:
             self.epsilon *= self.epsilon_decay
         return is_random
 
 
-    def train(self):
+    def train(self, epochs=1000):
         games_counter = 0
         steps_counter = 0
+        game_rewards = []
+        game_total_reward = 0
 
-        while games_counter < self.epochs:
+        while games_counter < epochs:
             state = self.env.get_state()
 
             # random action policy
@@ -98,9 +100,16 @@ class Agent:
             if steps_counter % 20 == 0:
                 self.update_weights()
 
+            game_total_reward += reward
+
             steps_counter += 1
             if done:
                 games_counter += 1
+                game_rewards.append(game_total_reward)
+                game_total_reward = 0
+
+        return game_rewards
+
 
     def update_weights(self):
         if len(self.memory) < self.batch_size:
@@ -127,7 +136,8 @@ class Agent:
         self.model.fit(
             x=X,
             y=Y_full,
-            epochs=1
+            epochs=1,
+            verbose=0
         )
 
 
