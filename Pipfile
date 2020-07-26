@@ -9,6 +9,7 @@ verify_ssl = true
 tensorflow = "*"
 numpy = "*"
 jupyterlab = "*"
+seaborn = "*"
 
 [requires]
 python_version = "3.7"
