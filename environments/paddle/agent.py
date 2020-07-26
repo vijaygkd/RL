@@ -108,34 +108,20 @@ class Agent:
 
         # sample from D
         replays = random.sample(self.memory, k=self.batch_size)
-        X = np.array([r['state'] for r in replays])
-        X = X.reshape(-1, 5)
-
-        # def set_y(replay):
-        #     action = replay['action']
-        #     if replay['done']:
-        #         r = replay['reward']
-        #     else:
-        #         next_reward = self.predict_rewards(replay['new_state'])
-        #         max_next_reward = np.max(next_reward)
-        #         r = replay['reward'] + self.gamma * max_next_reward
-        #     y[action] = r
-        #     return y
-        #
-        # Y = list(map(set_y, replays))
-        # Y = np.array(Y).reshape(-1, 3)  # one-hot y value
-
+        X = np.array([r['state'] for r in replays]).reshape(-1, 5)
 
         actions = np.array([r['action'] for r in replays])
         rewards = np.array([r['reward'] for r in replays])
         dones = np.array([r['done'] for r in replays])
 
         X_next = np.array([r['new_state'] for r in replays]).reshape(-1,5)
-        next_rewards = self.model.predict_on_batch(X_next).apply_along_axis(np.max, 1)
+        next_rewards = np.apply_along_axis(np.max, 1, self.model.predict_on_batch(X_next))
         Y = rewards + self.gamma * next_rewards * (1-dones)
 
-        Y_full = self.model.predict_on_batch(X)
-        Y_full[actions] = Y
+        #### *** Setting target for training ***
+        Y_full = self.model.predict_on_batch(X)     # predicted rewards / action for current weights
+        ix = np.arange(self.batch_size)
+        Y_full[ix , actions] = Y            # replace target reward for the selected action from sample for training
 
         # update weights SGD
         self.model.fit(
