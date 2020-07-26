@@ -1,4 +1,5 @@
 import random
+from collections import deque
 
 import numpy as np
 from tensorflow.keras.models import Model
@@ -15,10 +16,13 @@ class Agent:
         self.epochs = 1000
         
         # hyper - params
-        self.delta = 0.9   # discout rate
+        self.epsilon = 1
+        self.epsilon_decay = 0.995
+
+        self.gamma = 0.95   # discout rate
 
         self.model = self.get_init_model()
-        self.D = []     # replay memory
+        self.memory = []     # replay memory
 
         self.env = Paddle()
 
@@ -56,6 +60,14 @@ class Agent:
         return model
 
 
+    def is_random_action_policy(self):
+        dice = random.uniform(0, 1)
+        is_random = dice < self.epsilon
+        if self.epsilon > 0.1:
+            self.epsilon *= self.epsilon_decay
+        return is_random
+
+
     def train(self):
         games_counter = 0
         steps_counter = 0
@@ -63,14 +75,18 @@ class Agent:
         while games_counter < self.epochs:
             state = self.env.get_state()
 
-            # greedy or random policy
-            action = self.select_action(state)
+            # random action policy
+            if self.is_random_action_policy():
+                action = random.randint(0,2)
+            # greedy action policy
+            else:
+                action = self.select_action(state)
 
             # execute action in env
             reward, new_state, done = self.env.step(action)
 
             # replay memory
-            self.D.append({
+            self.memory.append({
                     'state': state,
                     'action': action,
                     'reward': reward,
@@ -88,7 +104,7 @@ class Agent:
     def update_weights(self):
         # sample from D
         batch_size = 32
-        replays = random.sample(self.D, k=min(batch_size, len(self.D)))
+        replays = random.sample(self.memory, k=min(batch_size, len(self.memory)))
         X = np.array([r['state'] for r in replays])
         X = X.reshape(-1, 5)
 
@@ -100,7 +116,7 @@ class Agent:
             else:
                 next_reward = self.predict_rewards(replay['new_state'])
                 max_next_reward = np.max(next_reward)
-                r = replay['reward'] + self.delta * max_next_reward
+                r = replay['reward'] + self.gamma * max_next_reward
             y[action] = r
             return y
 
