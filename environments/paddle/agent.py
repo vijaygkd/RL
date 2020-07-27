@@ -93,7 +93,7 @@ class Agent:
         self.val_set = np.array(val_set)
 
 
-    def train(self, epochs=1000):
+    def train(self, epochs=10):
         games_counter = 0
         steps_counter = 0
         total_game_reward = 0
@@ -124,13 +124,15 @@ class Agent:
 
             if steps_counter % 20 == 0:
                 val_score = self.update_weights()
-                val_scores.append(val_score)
+                if val_score:
+                    val_scores.append(val_score)    # some issue is np average which return None from val function
 
             steps_counter += 1
             if done:
                 games_counter += 1
                 self.total_reward_per_epoch.append(total_game_reward)
-                self.val_score_per_epoch.append(np.average(val_scores))
+                if val_scores:
+                    self.val_score_per_epoch.append(np.average(val_scores))
                 # reset for next epoch
                 total_game_reward = 0
                 val_scores = []
@@ -177,8 +179,8 @@ class Agent:
         # Evaluation val set
         X_val = np.array([r['state'] for r in self.val_set]).reshape(-1, 5)
         Y_val_pred = np.apply_along_axis(np.max, 1, self.model.predict_on_batch(X_val))
-        total_val_reward = np.sum(Y_val_pred)
-        return total_val_reward
+        avg_val_reward = np.average(Y_val_pred)
+        return avg_val_reward
 
 
     def predict_rewards(self, state):
