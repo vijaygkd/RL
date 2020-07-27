@@ -72,8 +72,11 @@ class Paddle():
     def reset(self):
         self.paddle.goto(0, -275)
         self.ball.goto(0, 100)
+        self.hit, self.miss = 0, 0
+        self.update_score()
         state =  self.get_state()
         return state
+
 
     def step(self, action):
         self.reward = 0
@@ -104,6 +107,11 @@ class Paddle():
         return [self.paddle.xcor()*0.01, self.ball.xcor()*0.01, self.ball.ycor()*0.01, self.ball.dx, self.ball.dy]
 
 
+    def update_score(self):
+        self.score.clear()
+        self.score.write(f"Hit: {self.hit}   Missed: {self.miss}", align='center', font=('Courier', 24, 'normal'))
+
+
     def run_frame(self):
         self.win.update()
 
@@ -128,8 +136,7 @@ class Paddle():
         if self.ball.ycor() < -290:
             self.ball.goto(0, 100)
             self.miss += 1
-            self.score.clear()
-            self.score.write(f"Hit: {self.hit}   Missed: {self.miss}", align='center', font=('Courier', 24, 'normal'))
+            self.update_score()
             self.reward -= 3
             self.done = 1
 
@@ -137,8 +144,7 @@ class Paddle():
         if abs(self.ball.ycor() + 250) < 2 and abs(self.paddle.xcor() - self.ball.xcor()) < 55:
             self.ball.dy *= -1
             self.hit += 1
-            self.score.clear()
-            self.score.write(f"Hit: {self.hit}   Missed: {self.miss}", align='center', font=('Courier', 24, 'normal'))
+            self.update_score()
             self.reward += 3
 
 
